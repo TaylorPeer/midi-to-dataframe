@@ -1,15 +1,15 @@
 import unittest
 
-from processing.note_mapper import NoteMapper
-from processing.midi_reader import MidiReader, NoteLength
+from midi_to_dataframe.note_mapper import NoteMapper
+from midi_to_dataframe.midi_reader import MidiReader, NoteLength
 
-MIDI_FILE_1 = "resources/processing/midi/080 Downtempo 08.mid"
-MIDI_FILE_2 = "resources/processing/midi/090 New York.mid"
-MIDI_FILE_3 = "resources/processing/midi/135 Garage 02.mid"
-MIDI_FILE_4 = "resources/processing/midi/170 Jungle 09.mid"
-MIDI_FILE_5 = "resources/processing/midi/freestyler-clip.mid"
-MIDI_FILE_6 = "resources/processing/midi/Bomfunk_MCs_-_Freestyler.mid"
-MIDI_FILE_7 = "resources/processing/midi/Tool_-_The_grudge.mid"
+MIDI_FILE_1 = "resources/midi/080 Downtempo 08.mid"
+MIDI_FILE_2 = "resources/midi/090 New York.mid"
+MIDI_FILE_3 = "resources/midi/135 Garage 02.mid"
+MIDI_FILE_4 = "resources/midi/170 Jungle 09.mid"
+MIDI_FILE_5 = "resources/midi/freestyler-clip.mid"
+MIDI_FILE_6 = "resources/midi/Bomfunk_MCs_-_Freestyler.mid"
+MIDI_FILE_7 = "resources/midi/Tool_-_The_grudge.mid"
 
 
 class MidiReaderTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class MidiReaderTests(unittest.TestCase):
         super(MidiReaderTests, self).__init__(*args, **kwargs)
 
         # Prepare test objects
-        note_mapping_config_path = "resources/processing/config/map-to-group.json"
+        note_mapping_config_path = "resources/config/map-to-group.json"
         note_mapper = NoteMapper(note_mapping_config_path)
         self.test_instance = MidiReader(note_mapper)
 

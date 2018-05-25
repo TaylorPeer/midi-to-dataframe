@@ -1,7 +1,10 @@
 from setuptools import setup
 
 setup(
-    name='midi-to-dataframe',
+    name='midi_to_dataframe',
     version='0.1',
-    scripts=['midi-to-dataframe']
+    scripts=['midi_to_dataframe'],
+    install_requires=[
+        'midi', 'pandas',
+    ],
 )
