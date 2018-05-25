@@ -10,6 +10,7 @@ MIDI_FILE_4 = "resources/midi/170 Jungle 09.mid"
 MIDI_FILE_5 = "resources/midi/freestyler-clip.mid"
 MIDI_FILE_6 = "resources/midi/Bomfunk_MCs_-_Freestyler.mid"
 MIDI_FILE_7 = "resources/midi/Tool_-_The_grudge.mid"
+MIDI_FILE_8 = "resources/midi/How Can You Mend a Broken Heart.1.mid"
 
 
 class MidiReaderTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class MidiReaderTests(unittest.TestCase):
         self.test_instance.set_timing_quantization(NoteLength.SIXTEENTH)
 
         # Convert MIDI file to sequential text representation
-        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_7)
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_8)
 
         print(dataframe.head(20).to_string())
 

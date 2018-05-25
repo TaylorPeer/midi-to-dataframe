@@ -110,14 +110,21 @@ class MidiReader(object):
         # Create (timestamp -> notes) mapping from the text sequence
         timestamp_sequence = self.__create_timestamp_sequence(self.text_sequence, timing_quantization_ticks)
 
+        # Check number of timestamp entries
+        (max_timestamp, _) = max(self.text_sequence.items())
+        if max_timestamp > 10000000:  # More than this becomes painfully slow...
+            # TODO log something...
+            self.__reset_intermediary_variables()
+            return pd.DataFrame()
+
         # Fill in blank beats, according to configured timing quantization rate
-        (max_timestamps, _) = max(self.text_sequence.items())
-        for i in range(0, (max_timestamps + timing_quantization_ticks), timing_quantization_ticks):
+        for i in range(0, (max_timestamp + timing_quantization_ticks), timing_quantization_ticks):
             if i not in timestamp_sequence:
                 timestamp_sequence[i] = REST
 
         # TODO make extracted values configurable (bpm, time signature, etc.)
         data_rows = []
+
         measure = 1
         current_beat = 1
         prev_time_sig = None
