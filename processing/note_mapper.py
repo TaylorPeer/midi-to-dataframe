@@ -51,9 +51,13 @@ class NoteMapper(object):
         else:
             # TODO collect number of errors, count by note / program, log only when called
             if program >= 0:
-                print("Note not found in configured mapping: " + str(note) + " on channel: " + str(program))
+                # TODO temporarily disabled:
+                # print("Note not found in configured mapping: " + str(note) + " on channel: " + str(program))
+                pass
             else:
-                print("Note not found in configured mapping " + str(note) + " on drum channel.")
+                # TODO temporarily disabled:
+                # print("Note not found in configured mapping " + str(note) + " on drum channel.")
+                pass
         return None
 
     def get_instrument(self, program):
