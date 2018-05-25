@@ -6,6 +6,7 @@ from enum import Enum
 from collections import namedtuple
 
 # Constants
+DEFAULT_MIDI_BPM = 120
 DEFAULT_MIDI_PROGRAM_NUM = -1
 MIDI_DRUM_CHANNEL = 9
 REST = "rest"
@@ -82,106 +83,6 @@ class MidiReader(object):
         """
         self.timing_quantization_ratio = timing_quantization.value
 
-    @staticmethod
-    def quantize(x, base):
-        """
-        Rounds a given number to a given fixed step size.
-        :param x: the number to round.
-        :param base: the allowed step size.
-        :return: the quantized value.
-        """
-        if base > 0:
-            rounded = int(base * round(float(x) / base))
-            return rounded
-        else:
-            return base
-
-    @staticmethod
-    def round_down(num, divisor):
-        """
-        Rounds a given number down to the nearest multiple of the divisor.
-        :param num: the number to round down.
-        :param divisor: the multiple to round down to.
-        :return: the number, rounded down to the nearest multiple of the divisor given.
-        """
-        if divisor == 0:
-            return 0
-        return num - (num % divisor)
-
-    @staticmethod
-    def get_value_at_timestamp(values, timestamp):
-        """
-        Searches an ordered dictionary of (timestamp, value) pairs for the value with the greatest timestamp lower than
-        or equal to a given threshold timestamp.
-        :param values: the ordered dictionary to search through.
-        :param timestamp: the cutoff timestamp that the value should occur at or before.
-        :return: the value found.
-        """
-
-        # Default to first element
-        # TODO check if values is empty
-        keys = list(values.keys())
-        value_at_timestamp = values[keys[0]]
-
-        for (index, value) in values.items():
-            if index <= timestamp:
-                # Store value of highest timestamp encountered so far
-                value_at_timestamp = value
-            else:
-                # Since values are sorted by timestamp, end the search early
-                return value_at_timestamp
-
-        return value_at_timestamp
-
-    def extract_text_sequence(self, pattern, duration_quantization_ticks):
-        """
-        Processes a MIDI pattern by extracting a textual representation of all the notes played. The extracted text
-        sequence is stored in self.text_sequence.
-        :param pattern: the MIDI pattern to process.
-        :param duration_quantization_ticks: the factor to quantize MIDI note durations by, in MIDI ticks.
-        :return: None.
-        """
-
-        # Process each track of the input file in sequence
-        for track in pattern:
-
-            # Reset current program for each track
-            # The program is a number that defines the instrument playing on the track
-            current_program = DEFAULT_MIDI_PROGRAM_NUM
-
-            # Process all MIDI events in the track and store textual representation in self.text_sequence
-            for event in track:
-                # Updates current_program, since this may have been changed by the event
-                current_program = self.process_midi_event(event, current_program, duration_quantization_ticks)
-
-    @staticmethod
-    def create_timestamp_sequence(text_sequence, timing_quantization_ticks):
-        """
-        Create a single (timestamp, notes) mapping out of extracted note information.
-        :param text_sequence: the extracted notes.
-        :param timing_quantization_ticks: the quantization factor to use, in MIDI ticks.
-        :return: a single (timestamp, notes) mapping of all extracted notes.
-        """
-        timestamp_sequence = {}
-        for (timestamp, notes) in sorted(text_sequence.items()):
-
-            if len(notes) > 0:
-
-                # TODO why round down?
-                timestamp = MidiReader.round_down(timestamp, timing_quantization_ticks)
-
-                # Store notes as comma-separated string
-                note_string = ','.join(list(notes))
-
-                if timestamp in timestamp_sequence:
-                    # If an entry already exists for the timestamp, append the notes to it
-                    timestamp_sequence[timestamp] += ',' + note_string
-                else:
-                    # ...otherwise, create a new entry
-                    timestamp_sequence[timestamp] = note_string
-
-        return timestamp_sequence
-
     def convert_to_dataframe(self, path):
         """
         Loads a MIDI file from disk and creates a timestamped text sequence representing its MIDI events.
@@ -204,10 +105,10 @@ class MidiReader(object):
         timing_quantization_ticks = int(pattern.resolution * self.timing_quantization_ratio)
 
         # Extract a textual representations of the MIDI pattern.
-        self.extract_text_sequence(pattern, duration_quantization_ticks)
+        self.__extract_text_sequence(pattern, duration_quantization_ticks)
 
         # Create (timestamp -> notes) mapping from the text sequence
-        timestamp_sequence = MidiReader.create_timestamp_sequence(self.text_sequence, timing_quantization_ticks)
+        timestamp_sequence = self.__create_timestamp_sequence(self.text_sequence, timing_quantization_ticks)
 
         # Fill in blank beats, according to configured timing quantization rate
         (max_timestamps, _) = max(self.text_sequence.items())
@@ -226,11 +127,11 @@ class MidiReader(object):
             row = {'timestamp': timestamp, 'notes': notes}
 
             # Extract BPM at time index
-            row['bpm'] = MidiReader.get_value_at_timestamp(self.bpms, timestamp)
+            row['bpm'] = self.__get_value_at_timestamp(self.bpms, timestamp)
 
             # Extract time signature at time index
             prev_time_sig = time_sig
-            time_sig = MidiReader.get_value_at_timestamp(self.time_signatures, timestamp)
+            time_sig = self.__get_value_at_timestamp(self.time_signatures, timestamp)
             row['time_signature'] = str(time_sig.numerator) + "/" + str(time_sig.denominator)
 
             # TODO refactor
@@ -263,7 +164,7 @@ class MidiReader(object):
             data_rows.append(row)
 
         # Since extraction is complete, reset all internal variables
-        self.reset_intermediary_variables()
+        self.__reset_intermediary_variables()
 
         # Create Data Frame from rows, stored as dictionaries
         dataframe = pd.DataFrame.from_dict(data_rows, orient='columns')
@@ -273,17 +174,62 @@ class MidiReader(object):
 
         return dataframe
 
-    def reset_intermediary_variables(self):
+    def __extract_text_sequence(self, pattern, duration_quantization_ticks):
         """
-        Clears all stateful variables used during MIDI-to-text conversion.
+        Processes a MIDI pattern by extracting a textual representation of all the notes played. The extracted text
+        sequence is stored in self.text_sequence.
+        :param pattern: the MIDI pattern to process.
+        :param duration_quantization_ticks: the factor to quantize MIDI note durations by, in MIDI ticks.
         :return: None.
         """
-        self.time_signatures = OrderedDict()
-        self.bpms = OrderedDict()
-        self.text_sequence = defaultdict(list)
-        self.on_notes = {}
 
-    def process_midi_event(self, event, program, duration_quantization_ticks):
+        # Process each track of the input file in sequence
+        for track in pattern:
+
+            # Reset current program for each track
+            # The program is a number that defines the instrument playing on the track
+            current_program = DEFAULT_MIDI_PROGRAM_NUM
+
+            # Process all MIDI events in the track and store textual representation in self.text_sequence
+            for event in track:
+                # Updates current_program, since this may have been changed by the event
+                current_program = self.__process_midi_event(event, current_program, duration_quantization_ticks)
+
+        # In case BPM and Tempo were not set explicitly, assume MIDI defaults:
+        if len(self.time_signatures) == 0:
+            self.time_signatures[event.tick] = TimeSignature(4, 4)
+        if len(self.bpms) == 0:
+            self.bpms[0] = DEFAULT_MIDI_BPM
+
+    @staticmethod
+    def __create_timestamp_sequence(text_sequence, timing_quantization_ticks):
+        """
+        Create a single (timestamp, notes) mapping out of extracted note information.
+        :param text_sequence: the extracted notes.
+        :param timing_quantization_ticks: the quantization factor to use, in MIDI ticks.
+        :return: a single (timestamp, notes) mapping of all extracted notes.
+        """
+        timestamp_sequence = {}
+        for (timestamp, notes) in sorted(text_sequence.items()):
+
+            if len(notes) > 0:
+
+                # TODO why round down?
+                timestamp = MidiReader.__round_down(timestamp, timing_quantization_ticks)
+
+                # Store notes as comma-separated string
+                note_string = ','.join(list(notes))
+
+                if timestamp in timestamp_sequence:
+                    # If an entry already exists for the timestamp, append the notes to it
+                    timestamp_sequence[timestamp] += ',' + note_string
+                else:
+                    # ...otherwise, create a new entry
+                    timestamp_sequence[timestamp] = note_string
+
+        return timestamp_sequence
+
+    def __process_midi_event(self, event, program, duration_quantization_ticks):
         """
         Processes a MIDI event played by a given MIDI program.
         :param event: the MIDI event to process.
@@ -301,7 +247,7 @@ class MidiReader(object):
             self.on_notes[event.pitch] = (event.tick, event)
         # Some sequences pass Note Off events encoded as a Note On event with 0 velocity
         elif type(event) == midi.NoteOffEvent or type(event) == midi.NoteOnEvent and event.velocity == 0:
-            self.process_note_off(event.pitch, program, event.tick, duration_quantization_ticks)
+            self.__process_note_off(event.pitch, program, event.tick, duration_quantization_ticks)
         elif type(event) == midi.TimeSignatureEvent:
             self.time_signatures[event.tick] = TimeSignature(event.get_numerator(), event.get_denominator())
         elif type(event) == midi.SetTempoEvent:
@@ -314,7 +260,7 @@ class MidiReader(object):
 
         return program
 
-    def process_note_off(self, note, program, current_tick, duration_quantization):
+    def __process_note_off(self, note, program, current_tick, duration_quantization):
         """
         Processes a note off message by adding a textual representation of the note to this instance's text sequence.
         :param note: the MIDI note being turned off.
@@ -338,7 +284,7 @@ class MidiReader(object):
                 if program < 0:
                     duration = duration_quantization
                 else:
-                    duration = MidiReader.quantize(duration, duration_quantization)
+                    duration = self.__quantize(duration, duration_quantization)
 
                 # Convert duration from ticks to quarter notes
                 duration = duration / self.resolution
@@ -360,3 +306,64 @@ class MidiReader(object):
 
         else:
             pass
+
+    @staticmethod
+    def __quantize(x, base):
+        """
+        Rounds a given number to a given fixed step size.
+        :param x: the number to round.
+        :param base: the allowed step size.
+        :return: the quantized value.
+        """
+        if base > 0:
+            rounded = int(base * round(float(x) / base))
+            return rounded
+        else:
+            return base
+
+    @staticmethod
+    def __round_down(num, divisor):
+        """
+        Rounds a given number down to the nearest multiple of the divisor.
+        :param num: the number to round down.
+        :param divisor: the multiple to round down to.
+        :return: the number, rounded down to the nearest multiple of the divisor given.
+        """
+        if divisor == 0:
+            return 0
+        return num - (num % divisor)
+
+    @staticmethod
+    def __get_value_at_timestamp(values, timestamp):
+        """
+        Searches an ordered dictionary of (timestamp, value) pairs for the value with the greatest timestamp lower than
+        or equal to a given threshold timestamp.
+        :param values: the ordered dictionary to search through.
+        :param timestamp: the cutoff timestamp that the value should occur at or before.
+        :return: the value found.
+        """
+
+        # Default to first element
+        # TODO check if values is empty
+        keys = list(values.keys())
+        value_at_timestamp = values[keys[0]]
+
+        for (index, value) in values.items():
+            if index <= timestamp:
+                # Store value of highest timestamp encountered so far
+                value_at_timestamp = value
+            else:
+                # Since values are sorted by timestamp, end the search early
+                return value_at_timestamp
+
+        return value_at_timestamp
+
+    def __reset_intermediary_variables(self):
+        """
+        Clears all stateful variables used during MIDI-to-text conversion.
+        :return: None.
+        """
+        self.time_signatures = OrderedDict()
+        self.bpms = OrderedDict()
+        self.text_sequence = defaultdict(list)
+        self.on_notes = {}
