@@ -17,7 +17,7 @@ class MidiReaderTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MidiReaderTests, self).__init__(*args, **kwargs)
 
-        # Prepare test objects
+        # Prepare tests objects
         note_mapping_config_path = "resources/config/map-to-group.json"
         note_mapper = NoteMapper(note_mapping_config_path)
         self.test_instance = MidiReader(note_mapper)

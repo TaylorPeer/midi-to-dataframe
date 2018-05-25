@@ -63,7 +63,7 @@ class MidiReader(object):
         # Text representation of extracted notes, stored by timestamp
         self.text_sequence = defaultdict(list)
 
-        # Temporary data store used during MIDI file midi_to_dataframe
+        # Temporary data store used during MIDI file to dataframe conversion
         self.on_notes = {}
 
     def set_duration_quantization(self, duration_quantization):
