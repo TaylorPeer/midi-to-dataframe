@@ -164,9 +164,9 @@ class MidiReader(object):
                 row['bpm'] = self._get_value_at_timestamp(self._bpm_by_timestamp, timestamp)
 
             # Extract time signature at time index
+            prev_time_sig = time_sig
+            time_sig = self._get_value_at_timestamp(self._time_signature_by_timestamp, timestamp)
             if self._extract_time_signature:
-                prev_time_sig = time_sig
-                time_sig = self._get_value_at_timestamp(self._time_signature_by_timestamp, timestamp)
                 row['time_signature'] = str(time_sig.numerator) + "/" + str(time_sig.denominator)
 
             # FIXME measure counts are wrong if quantization rate < time signature denominator

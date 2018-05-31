@@ -25,9 +25,11 @@ class MidiReaderTests(unittest.TestCase):
 
     def test_sequence_extraction(self):
         self.test_instance.set_timing_quantization(NoteLength.SIXTEENTH)
+        self.test_instance.set_extract_timestamp(False)
+        self.test_instance.set_extract_time_signature(False)
 
         # Convert MIDI file to sequential text representation
-        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_8)
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_7)
 
         print(dataframe.head(20).to_string())
 
