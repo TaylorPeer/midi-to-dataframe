@@ -47,26 +47,33 @@ class MidiReader(object):
         """
 
         # Note mapping configuration to use
-        self.note_mapper = note_mapper
+        self._note_mapper = note_mapper
 
         # Note duration and timing quantization settings
-        self.duration_quantization_ratio = DEFAULT_DURATION_QUANTIZATION
-        self.timing_quantization_ratio = DEFAULT_TIMING_QUANTIZATION
+        self._duration_quantization_ratio = DEFAULT_DURATION_QUANTIZATION
+        self._timing_quantization_ratio = DEFAULT_TIMING_QUANTIZATION
 
         # MIDI file resolution (ticks per quarter note)
-        self.resolution = 120
+        self._resolution = 120
 
         # Time signature changes, stored by timestamp
-        self.time_signatures = OrderedDict()
+        self._time_signature_by_timestamp = OrderedDict()
 
         # Tempo/BPM changes, stored by timestamp
-        self.bpms = OrderedDict()
+        self._bpm_by_timestamp = OrderedDict()
 
         # Text representation of extracted notes, stored by timestamp
-        self.text_sequence = defaultdict(list)
+        self._text_sequence = defaultdict(list)
 
         # Temporary data store used during MIDI file to dataframe conversion
-        self.on_notes = {}
+        self._on_notes = {}
+
+        # Properties to extract from MIDI files
+        self._extract_timestamp = True
+        self._extract_bpm = True
+        self._extract_time_signature = True
+        self._extract_measure = True
+        self._extract_beat = True
 
     def set_duration_quantization(self, duration_quantization):
         """
@@ -74,7 +81,7 @@ class MidiReader(object):
         :param duration_quantization: the quantization value to use.
         :return: None.
         """
-        self.duration_quantization_ratio = duration_quantization.value
+        self._duration_quantization_ratio = duration_quantization.value
 
     def set_timing_quantization(self, timing_quantization):
         """
@@ -82,7 +89,22 @@ class MidiReader(object):
         :param timing_quantization: the quantization value to use.
         :return: None.
         """
-        self.timing_quantization_ratio = timing_quantization.value
+        self._timing_quantization_ratio = timing_quantization.value
+
+    def set_extract_timestamp(self, value):
+        self._extract_timestamp = value
+
+    def set_extract_bpm(self, value):
+        self._extract_bpm = value
+
+    def set_extract_time_signature(self, value):
+        self._extract_time_signature = value
+
+    def set_extract_measure(self, value):
+        self._extract_measure = value
+
+    def set_extract_beat(self, value):
+        self._extract_beat = value
 
     def convert_to_dataframe(self, path):
         """
@@ -99,20 +121,20 @@ class MidiReader(object):
         pattern.make_ticks_abs()
 
         # pattern.resolution specifies the number of MIDI ticks used per quarter note in the pattern
-        self.resolution = pattern.resolution
+        self._resolution = pattern.resolution
 
         # Convert the configured quantization values (specified in quarter notes) to MIDI ticks
-        duration_quantization_ticks = int(pattern.resolution * self.duration_quantization_ratio)
-        timing_quantization_ticks = int(pattern.resolution * self.timing_quantization_ratio)
+        duration_quantization_ticks = int(pattern.resolution * self._duration_quantization_ratio)
+        timing_quantization_ticks = int(pattern.resolution * self._timing_quantization_ratio)
 
         # Extract a textual representations of the MIDI pattern.
         self._extract_text_sequence(pattern, duration_quantization_ticks)
 
         # Create (timestamp -> notes) mapping from the text sequence
-        timestamp_sequence = self._create_timestamp_sequence(self.text_sequence, timing_quantization_ticks)
+        timestamp_sequence = self._create_timestamp_sequence(self._text_sequence, timing_quantization_ticks)
 
         # Check number of timestamp entries
-        (max_timestamp, _) = max(self.text_sequence.items())
+        (max_timestamp, _) = max(self._text_sequence.items())
         if max_timestamp > 10000000:  # More than this becomes painfully slow...
             # TODO log something...
             self._reset_intermediary_variables()
@@ -123,7 +145,6 @@ class MidiReader(object):
             if i not in timestamp_sequence:
                 timestamp_sequence[i] = REST
 
-        # TODO make extracted values configurable (bpm, time signature, etc.)
         data_rows = []
 
         measure = 1
@@ -132,30 +153,36 @@ class MidiReader(object):
         time_sig = None
         for (index, (timestamp, notes)) in enumerate(sorted(timestamp_sequence.items())):
 
-            row = {'timestamp': timestamp, 'notes': notes}
+            row = {'notes': notes}
+
+            # Extract current time index
+            if self._extract_timestamp:
+                row['timestamp'] = timestamp
 
             # Extract BPM at time index
-            row['bpm'] = self._get_value_at_timestamp(self.bpms, timestamp)
+            if self._extract_bpm:
+                row['bpm'] = self._get_value_at_timestamp(self._bpm_by_timestamp, timestamp)
 
             # Extract time signature at time index
-            prev_time_sig = time_sig
-            time_sig = self._get_value_at_timestamp(self.time_signatures, timestamp)
-            row['time_signature'] = str(time_sig.numerator) + "/" + str(time_sig.denominator)
+            if self._extract_time_signature:
+                prev_time_sig = time_sig
+                time_sig = self._get_value_at_timestamp(self._time_signature_by_timestamp, timestamp)
+                row['time_signature'] = str(time_sig.numerator) + "/" + str(time_sig.denominator)
 
             # FIXME measure counts are wrong if quantization rate < time signature denominator
             # TODO refactor
             modifier = 1
-            if self.timing_quantization_ratio == NoteLength.THIRTY_SECOND.value:
+            if self._timing_quantization_ratio == NoteLength.THIRTY_SECOND.value:
                 modifier = 32 / time_sig.denominator
-            elif self.timing_quantization_ratio == NoteLength.SIXTEENTH.value:
+            elif self._timing_quantization_ratio == NoteLength.SIXTEENTH.value:
                 modifier = 16 / time_sig.denominator
-            elif self.timing_quantization_ratio == NoteLength.EIGHTH.value:
+            elif self._timing_quantization_ratio == NoteLength.EIGHTH.value:
                 modifier = 8 / time_sig.denominator
-            elif self.timing_quantization_ratio == NoteLength.QUARTER.value:
+            elif self._timing_quantization_ratio == NoteLength.QUARTER.value:
                 modifier = 4 / time_sig.denominator
             total_beat_units = (index / modifier)
 
-            if self.timing_quantization_ratio == NoteLength.QUARTER.value:
+            if self._timing_quantization_ratio == NoteLength.QUARTER.value:
                 total_beat_units *= 2
 
             # Count number of beats so far this measure
@@ -169,9 +196,13 @@ class MidiReader(object):
 
             beat = current_beat + total_beat_units % 1
 
-            # Set current measure and beat
-            row["measure"] = measure
-            row["beat"] = beat
+            # Set current measure
+            if self._extract_measure:
+                row['measure'] = measure
+
+            # Set current beat
+            if self._extract_beat:
+                row['beat'] = beat
 
             data_rows.append(row)
 
@@ -181,8 +212,8 @@ class MidiReader(object):
         # Create Data Frame from rows, stored as dictionaries
         dataframe = pd.DataFrame.from_dict(data_rows, orient='columns')
 
-        # Re-order columns
-        dataframe = dataframe[['timestamp', 'bpm', 'time_signature', 'measure', 'beat', 'notes']]
+        # Put columns into correct order
+        dataframe = self._reorder_cols(dataframe)
 
         return dataframe
 
@@ -208,10 +239,10 @@ class MidiReader(object):
                 current_program = self._process_midi_event(event, current_program, duration_quantization_ticks)
 
         # In case BPM and Tempo were not set explicitly, assume MIDI defaults:
-        if len(self.time_signatures) == 0:
-            self.time_signatures[0] = DEFAULT_MIDI_TIME_SIGNATURE
-        if len(self.bpms) == 0:
-            self.bpms[0] = DEFAULT_MIDI_BPM
+        if len(self._time_signature_by_timestamp) == 0:
+            self._time_signature_by_timestamp[0] = DEFAULT_MIDI_TIME_SIGNATURE
+        if len(self._bpm_by_timestamp) == 0:
+            self._bpm_by_timestamp[0] = DEFAULT_MIDI_BPM
 
     @staticmethod
     def _create_timestamp_sequence(text_sequence, timing_quantization_ticks):
@@ -256,14 +287,15 @@ class MidiReader(object):
 
         # True Note On events have positive velocity
         if type(event) == midi.NoteOnEvent and event.velocity > 0:
-            self.on_notes[event.pitch] = (event.tick, event)
+            self._on_notes[event.pitch] = (event.tick, event)
         # Some sequences pass Note Off events encoded as a Note On event with 0 velocity
         elif type(event) == midi.NoteOffEvent or type(event) == midi.NoteOnEvent and event.velocity == 0:
             self._process_note_off(event.pitch, program, event.tick, duration_quantization_ticks)
         elif type(event) == midi.TimeSignatureEvent:
-            self.time_signatures[event.tick] = TimeSignature(event.get_numerator(), event.get_denominator())
+            self._time_signature_by_timestamp[event.tick] = TimeSignature(event.get_numerator(),
+                                                                          event.get_denominator())
         elif type(event) == midi.SetTempoEvent:
-            self.bpms[event.tick] = event.get_bpm()
+            self._bpm_by_timestamp[event.tick] = event.get_bpm()
         elif type(event) == midi.ProgramChangeEvent:
             program = event.value
         else:
@@ -283,10 +315,10 @@ class MidiReader(object):
         """
 
         # Check that note was previously turned on
-        if note in self.on_notes:
+        if note in self._on_notes:
 
             # Retrieve start time and original MIDI message for note
-            (start_tick, prev_message) = self.on_notes[note]
+            (start_tick, prev_message) = self._on_notes[note]
             duration = current_tick - start_tick
 
             # Ensure note was actually played
@@ -299,22 +331,22 @@ class MidiReader(object):
                     duration = self._quantize(duration, duration_quantization)
 
                 # Convert duration from ticks to quarter notes
-                duration = duration / self.resolution
+                duration = duration / self._resolution
 
                 # Convert MIDI note name to name of instrument or octave/pitch name (depending on program)
-                note_symbol = self.note_mapper.get_note(note, program)
+                note_symbol = self._note_mapper.get_note(note, program)
                 if note_symbol is not None:
                     # Concatenate instrument, note name and duration to create textual representation
                     # TODO replace underscore with constant/variable from note_mapping
                     # TODO allow customization of extracted note properties
-                    representation = self.note_mapper.get_instrument(program) + "_" + note_symbol + "_" + str(
+                    representation = self._note_mapper.get_instrument(program) + "_" + note_symbol + "_" + str(
                         duration)
 
                     # Add note to the textual sequence representation
-                    self.text_sequence[start_tick].append(representation)
+                    self._text_sequence[start_tick].append(representation)
 
             # Remove from on notes
-            del self.on_notes[note]
+            del self._on_notes[note]
 
         else:
             pass
@@ -356,7 +388,7 @@ class MidiReader(object):
         """
 
         # Default to first element
-        # TODO check if values is empty
+        # TODO check if 'values' is empty
         keys = list(values.keys())
         value_at_timestamp = values[keys[0]]
 
@@ -370,12 +402,32 @@ class MidiReader(object):
 
         return value_at_timestamp
 
+    def _reorder_cols(self, dataframe):
+        """
+        Puts all extracted columns into the correct, expected order.
+        :param dataframe: the dataframe whose columns will be reordered.
+        :return: dataframe with reordered columns.
+        """
+        correct_col_order = []
+        if self._extract_timestamp:
+            correct_col_order.append('timestamp')
+        if self._extract_bpm:
+            correct_col_order.append('bpm')
+        if self._extract_time_signature:
+            correct_col_order.append('time_signature')
+        if self._extract_measure:
+            correct_col_order.append('measure')
+        if self._extract_beat:
+            correct_col_order.append('beat')
+        correct_col_order.append('notes')
+        return dataframe[correct_col_order]
+
     def _reset_intermediary_variables(self):
         """
         Clears all stateful variables used during MIDI-to-text conversion.
         :return: None.
         """
-        self.time_signatures = OrderedDict()
-        self.bpms = OrderedDict()
-        self.text_sequence = defaultdict(list)
-        self.on_notes = {}
+        self._time_signature_by_timestamp = OrderedDict()
+        self._bpm_by_timestamp = OrderedDict()
+        self._text_sequence = defaultdict(list)
+        self._on_notes = {}
