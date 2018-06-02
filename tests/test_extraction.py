@@ -1,7 +1,8 @@
 import unittest
 
-from midi_to_dataframe.note_mapper import NoteMapper
-from midi_to_dataframe.midi_reader import MidiReader, NoteLength
+from midi_to_dataframe import NoteMapper
+from midi_to_dataframe import MidiReader
+from midi_to_dataframe import MidiWriter
 
 MIDI_FILE_1 = "resources/midi/080 Downtempo 08.mid"
 MIDI_FILE_2 = "resources/midi/090 New York.mid"
@@ -24,14 +25,28 @@ class MidiReaderTests(unittest.TestCase):
         self.test_instance = MidiReader(note_mapper)
 
     def test_sequence_extraction(self):
-        self.test_instance.set_timing_quantization(NoteLength.SIXTEENTH)
         self.test_instance.set_extract_timestamp(False)
         self.test_instance.set_extract_time_signature(False)
 
         # Convert MIDI file to sequential text representation
-        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_7)
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_5)
 
-        print(dataframe.head(20).to_string())
+        # print(dataframe.head(100).to_string())
+
+        # TODO: assert something useful...
+        self.assertTrue(True)
+
+    def test_sequence_generation(self):
+        # Prepare tests objects
+        note_mapping_config_path = "resources/config/map-to-group.json"
+        note_mapper = NoteMapper(note_mapping_config_path)
+
+        writer = MidiWriter(note_mapper)
+
+        # Convert MIDI file to sequential text representation
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_6)
+
+        writer.convert_to_midi(dataframe, "resources/test.midi")
 
         # TODO: assert something useful...
         self.assertTrue(True)

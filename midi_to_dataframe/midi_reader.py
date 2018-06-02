@@ -1,3 +1,4 @@
+import logging
 import midi
 import pandas as pd
 from collections import defaultdict
@@ -45,6 +46,7 @@ class MidiReader(object):
         Creates a new MidiReader instance.
         :return: None.
         """
+        self._logger = logging.getLogger(__name__)
 
         # Note mapping configuration to use
         self._note_mapper = note_mapper
@@ -75,22 +77,6 @@ class MidiReader(object):
         self._extract_measure = True
         self._extract_beat = True
 
-    def set_duration_quantization(self, duration_quantization):
-        """
-        Sets the note duration quantization interval (in quarter notes).
-        :param duration_quantization: the quantization value to use.
-        :return: None.
-        """
-        self._duration_quantization_ratio = duration_quantization.value
-
-    def set_timing_quantization(self, timing_quantization):
-        """
-        Sets the note timing quantization interval (in quarter notes).
-        :param timing_quantization: the quantization value to use.
-        :return: None.
-        """
-        self._timing_quantization_ratio = timing_quantization.value
-
     def set_extract_timestamp(self, value):
         self._extract_timestamp = value
 
@@ -108,15 +94,16 @@ class MidiReader(object):
 
     def convert_to_dataframe(self, path):
         """
-        Loads a MIDI file from disk and creates a timestamped text sequence representing its MIDI events.
+        Loads a MIDI file from disk and creates a Pandas Data Frame representing its MIDI events.
         :param path: the path to the MIDI file to load.
-        :return: the timestamped text sequence and associated metadata fields created for the MIDI file.
+        :return: the Data Frame.
         """
         try:
             pattern = midi.read_midifile(path)
         except TypeError:
-            print("Could not load MIDI file: " + path)  # TODO log
-            return {}, {}
+            self._logger.error("Could not load MIDI file: " + path)
+            self._reset_intermediary_variables()
+            return pd.DataFrame()
 
         pattern.make_ticks_abs()
 
@@ -282,7 +269,7 @@ class MidiReader(object):
         """
 
         # Set program to default for drums
-        if type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent and event.channel == MIDI_DRUM_CHANNEL:
+        if (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and event.channel == MIDI_DRUM_CHANNEL:
             program = DEFAULT_MIDI_PROGRAM_NUM
 
         # True Note On events have positive velocity
@@ -304,11 +291,11 @@ class MidiReader(object):
 
         return program
 
-    def _process_note_off(self, note, program, current_tick, duration_quantization):
+    def _process_note_off(self, note, program_num, current_tick, duration_quantization):
         """
         Processes a note off message by adding a textual representation of the note to this instance's text sequence.
         :param note: the MIDI note being turned off.
-        :param program: the program the note was played with.
+        :param program_num: the program the note was played with.
         :param current_tick: the absolute MIDI tick timestamp when the note off message was encountered.
         :param duration_quantization: the quantization factor to use for note duration values.
         :return: None.
@@ -325,7 +312,7 @@ class MidiReader(object):
             if duration > 0:
 
                 # Check the MIDI program to determine the instrument
-                if program < 0:
+                if program_num < 0:
                     duration = duration_quantization
                 else:
                     duration = self._quantize(duration, duration_quantization)
@@ -334,12 +321,12 @@ class MidiReader(object):
                 duration = duration / self._resolution
 
                 # Convert MIDI note name to name of instrument or octave/pitch name (depending on program)
-                note_symbol = self._note_mapper.get_note(note, program)
+                note_symbol = self._note_mapper.get_note_name(note, program_num)
                 if note_symbol is not None:
                     # Concatenate instrument, note name and duration to create textual representation
                     # TODO replace underscore with constant/variable from note_mapping
                     # TODO allow customization of extracted note properties
-                    representation = self._note_mapper.get_instrument(program) + "_" + note_symbol + "_" + str(
+                    representation = self._note_mapper.get_program_name(program_num) + "_" + note_symbol + "_" + str(
                         duration)
 
                     # Add note to the textual sequence representation
