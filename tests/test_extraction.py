@@ -12,6 +12,7 @@ MIDI_FILE_5 = "resources/midi/freestyler-clip.mid"
 MIDI_FILE_6 = "resources/midi/Bomfunk_MCs_-_Freestyler.mid"
 MIDI_FILE_7 = "resources/midi/Tool_-_The_grudge.mid"
 MIDI_FILE_8 = "resources/midi/How Can You Mend a Broken Heart.1.mid"
+MIDI_FILE_9 = "resources/midi/bach_choral.mid"
 
 
 class MidiReaderTests(unittest.TestCase):
@@ -29,9 +30,9 @@ class MidiReaderTests(unittest.TestCase):
         self.test_instance.set_extract_time_signature(False)
 
         # Convert MIDI file to sequential text representation
-        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_5)
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_9)
 
-        # print(dataframe.head(100).to_string())
+        print(dataframe.head(100).to_string())
 
         # TODO: assert something useful...
         self.assertTrue(True)
@@ -46,7 +47,7 @@ class MidiReaderTests(unittest.TestCase):
         # Convert MIDI file to sequential text representation
         dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_6)
 
-        writer.convert_to_midi(dataframe, "resources/test.midi")
+        # writer.convert_to_midi(dataframe, "resources/test.midi")
 
         # TODO: assert something useful...
         self.assertTrue(True)

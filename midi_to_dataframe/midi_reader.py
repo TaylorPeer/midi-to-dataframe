@@ -11,7 +11,7 @@ TimeSignature = namedtuple('TimeSignature', 'numerator denominator')
 
 # Constants
 DEFAULT_MIDI_BPM = 120
-DEFAULT_MIDI_PROGRAM_NUM = -1
+DEFAULT_MIDI_PROGRAM_NUM = 0
 DEFAULT_MIDI_TIME_SIGNATURE = TimeSignature(4, 4)
 MIDI_DRUM_CHANNEL = 9
 REST = "rest"
