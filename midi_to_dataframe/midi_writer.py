@@ -166,6 +166,9 @@ class MidiWriter(object):
             # Set tempo (BPM)
             tempo_event = midi.SetTempoEvent(tick=0, bpm=int(self._bpm))
             track.append(tempo_event)
+
+            # Set drum channel
+            track.append(midi.ProgramChangeEvent(tick=0, channel=PERCUSSION_CHANNEL))
         else:
             program_num = self._note_mapper.get_program_number(program_name)
             program_change_event = midi.ProgramChangeEvent(tick=0, data=[program_num])
