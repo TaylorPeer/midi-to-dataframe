@@ -323,6 +323,9 @@ class MidiReader(object):
                 # Convert duration from ticks to quarter notes
                 duration = duration / self._resolution
 
+                # Round to 2 decimal places
+                duration = self._round_to_sixteenth_note(duration)
+
                 # Convert MIDI note name to name of instrument or octave/pitch name (depending on program)
                 note_symbol = self._note_mapper.get_note_name(note, program_num)
                 if note_symbol is not None:
@@ -354,6 +357,12 @@ class MidiReader(object):
             return rounded
         else:
             return base
+
+    @staticmethod
+    def _round_to_sixteenth_note(x):
+        prec = 3
+        base = 0.125
+        return round(base * round(float(x) / base), prec)
 
     @staticmethod
     def _round_down(num, divisor):
