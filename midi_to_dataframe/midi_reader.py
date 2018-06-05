@@ -11,7 +11,7 @@ TimeSignature = namedtuple('TimeSignature', 'numerator denominator')
 
 # Constants
 DEFAULT_MIDI_BPM = 120
-DEFAULT_MIDI_PROGRAM_NUM = 0
+DEFAULT_MIDI_PROGRAM_NUM = -1
 DEFAULT_MIDI_TIME_SIGNATURE = TimeSignature(4, 4)
 MIDI_DRUM_CHANNEL = 9
 REST = "rest"
@@ -218,7 +218,7 @@ class MidiReader(object):
 
             # Reset current program for each track
             # The program is a number that defines the instrument playing on the track
-            current_program = DEFAULT_MIDI_PROGRAM_NUM
+            current_program = None
 
             # Process all MIDI events in the track and store textual representation in self.text_sequence
             for event in track:
@@ -268,9 +268,12 @@ class MidiReader(object):
         :return: the updated program of the MIDI track (since this may have been updated by the MIDI event).
         """
 
-        # Set program to default for drums
+        # Set program for drums, since this is set by channel and not explicitly
         if (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and event.channel == MIDI_DRUM_CHANNEL:
             program = DEFAULT_MIDI_PROGRAM_NUM
+        elif (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and program is None:
+            # TODO...
+            program = 1
 
         # True Note On events have positive velocity
         if type(event) == midi.NoteOnEvent and event.velocity > 0:
