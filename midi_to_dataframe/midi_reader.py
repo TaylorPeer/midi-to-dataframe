@@ -272,7 +272,7 @@ class MidiReader(object):
         if (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and event.channel == MIDI_DRUM_CHANNEL:
             program = DEFAULT_MIDI_PROGRAM_NUM
         elif (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and program is None:
-            # TODO...
+            # If program was never set, default to 1 (Piano)
             program = 1
 
         # True Note On events have positive velocity
@@ -325,6 +325,9 @@ class MidiReader(object):
 
                 # Round to 2 decimal places
                 duration = self._round_to_sixteenth_note(duration)
+
+                # TODO temp change for experiment:
+                duration = 1.0
 
                 # Convert MIDI note name to name of instrument or octave/pitch name (depending on program)
                 note_symbol = self._note_mapper.get_note_name(note, program_num)
