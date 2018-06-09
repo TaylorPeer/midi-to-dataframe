@@ -326,9 +326,6 @@ class MidiReader(object):
                 # Round to 2 decimal places
                 duration = self._round_to_sixteenth_note(duration)
 
-                # TODO temp change for experiment:
-                duration = 1.0
-
                 # Convert MIDI note name to name of instrument or octave/pitch name (depending on program)
                 note_symbol = self._note_mapper.get_note_name(note, program_num)
                 if note_symbol is not None:
