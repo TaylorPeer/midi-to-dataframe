@@ -1,3 +1,4 @@
+import logging
 import json
 
 # Letter notation for music notes
@@ -12,6 +13,7 @@ MAX_OCTAVE_INDEX = 11
 MIDI_TO_TEXT = "midi-to-text"
 TEXT_TO_MIDI = "text-to-midi"
 PERCUSSION = "percussion"
+DURATIONS = "durations"
 
 
 class NoteMapper(object):
@@ -24,11 +26,15 @@ class NoteMapper(object):
         Creates a new NoteMapper instance.
         :return: None.
         """
+        self._logger = logging.getLogger(__name__)
 
         # Load MIDI mapping configuration
         with open(path_to_config) as json_data:
             # TODO: validate JSON
             self.mappings = json.load(json_data)
+
+        # Allowed durations by instrument/program
+        self.duration_values = self.mappings[DURATIONS]
 
         # Initialize note names and numbers
         index = 0
@@ -42,6 +48,21 @@ class NoteMapper(object):
 
         # Log note lookup failures for later inspection
         self._note_lookup_failures = {}
+
+    def round_duration(self, program, duration):
+        """
+        Rounds the duration of a note played on a given program to the nearest configured step size.
+        :param program: the program name the note was played on.
+        :param duration: the raw duration value to round, in quarter notes.
+        :return: the rounded duration value.
+        """
+        if program in self.duration_values:
+            allowed_values = self.duration_values[program]
+            rounded = min(allowed_values, key=lambda x: abs(x - duration))
+            return rounded
+        else:
+            self._logger.error("No duration mapping defined for: {}".format(program))
+        return 0
 
     def get_program_name(self, program_number):
         """

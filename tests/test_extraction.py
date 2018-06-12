@@ -30,7 +30,7 @@ class MidiReaderTests(unittest.TestCase):
         self.test_instance.set_extract_time_signature(False)
 
         # Convert MIDI file to sequential text representation
-        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_9)
+        dataframe = self.test_instance.convert_to_dataframe(MIDI_FILE_7)
 
         print(dataframe.head(100).to_string())
 

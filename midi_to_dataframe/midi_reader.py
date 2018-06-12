@@ -314,14 +314,12 @@ class MidiReader(object):
             # Ensure note was actually played
             if duration > 0:
 
-                # Check the MIDI program to determine the instrument
-                if program_num < 0:
-                    duration = duration_quantization
-                else:
-                    duration = self._quantize(duration, duration_quantization)
-
                 # Convert duration from ticks to quarter notes
                 duration = duration / self._resolution
+
+                # Round duration to nearest step defined for instrument
+                instrument = self._note_mapper.get_program_name(program_num)
+                duration = self._note_mapper.round_duration(instrument, duration)
 
                 # Round to 2 decimal places
                 duration = self._round_to_sixteenth_note(duration)
@@ -332,8 +330,7 @@ class MidiReader(object):
                     # Concatenate instrument, note name and duration to create textual representation
                     # TODO replace underscore with constant/variable from note_mapping
                     # TODO allow customization of extracted note properties
-                    representation = self._note_mapper.get_program_name(program_num) + "_" + note_symbol + "_" + str(
-                        duration)
+                    representation = "{}_{}_{}".format(instrument, note_symbol, duration)
 
                     # Add note to the textual sequence representation
                     self._text_sequence[start_tick].append(representation)
