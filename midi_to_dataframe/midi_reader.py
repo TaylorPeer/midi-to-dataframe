@@ -6,9 +6,6 @@ from collections import OrderedDict
 from enum import Enum
 from collections import namedtuple
 
-import warnings
-warnings.filterwarnings("error")
-
 # Named time signature tuple, i.e. 4/4, 5/4, etc.
 TimeSignature = namedtuple('TimeSignature', 'numerator denominator')
 
