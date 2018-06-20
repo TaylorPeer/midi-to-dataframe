@@ -6,6 +6,9 @@ from collections import OrderedDict
 from enum import Enum
 from collections import namedtuple
 
+import warnings
+warnings.filterwarnings("error")
+
 # Named time signature tuple, i.e. 4/4, 5/4, etc.
 TimeSignature = namedtuple('TimeSignature', 'numerator denominator')
 
@@ -100,7 +103,7 @@ class MidiReader(object):
         """
         try:
             pattern = midi.read_midifile(path)
-        except TypeError:
+        except (TypeError, RuntimeWarning):
             self._logger.error("Could not load MIDI file: " + path)
             self._reset_intermediary_variables()
             return pd.DataFrame()
