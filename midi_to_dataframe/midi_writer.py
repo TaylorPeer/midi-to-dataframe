@@ -155,7 +155,7 @@ class MidiWriter(object):
         if program_name == PERCUSSION:
             # Set general track information on percussion channel
 
-            # TODO: Set time signature information
+            # TODO: Set time signature information:
             # time_signature_event = midi.TimeSignatureEvent(tick=0)
             # time_signature_event.set_numerator(4)
             # time_signature_event.set_denominator(4)

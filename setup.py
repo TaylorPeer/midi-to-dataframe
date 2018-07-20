@@ -10,13 +10,9 @@ requirements = [
 
 setup(name='midi_to_dataframe',
       version=VERSION,
-      # TODO: description="",
       author='Taylor Peer',
-      # TODO: author_email='',
       url='https://github.com/TaylorPeer/midi-to-dataframe',
-      # TODO: license='',
       packages=find_packages(),
       install_requires=requirements,
-      package_data={},
-      # TODO: classifiers=[]
+      package_data={}
       )

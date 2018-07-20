@@ -111,11 +111,10 @@ class MidiReader(object):
         self._resolution = pattern.resolution
 
         # Convert the configured quantization values (specified in quarter notes) to MIDI ticks
-        duration_quantization_ticks = int(pattern.resolution * self._duration_quantization_ratio)
         timing_quantization_ticks = int(pattern.resolution * self._timing_quantization_ratio)
 
         # Extract a textual representations of the MIDI pattern.
-        self._extract_text_sequence(pattern, duration_quantization_ticks)
+        self._extract_text_sequence(pattern)
 
         # Create (timestamp -> notes) mapping from the text sequence
         timestamp_sequence = self._create_timestamp_sequence(self._text_sequence, timing_quantization_ticks)
@@ -123,7 +122,7 @@ class MidiReader(object):
         # Check number of timestamp entries
         (max_timestamp, _) = max(self._text_sequence.items())
         if max_timestamp > 10000000:  # More than this becomes painfully slow...
-            # TODO log something...
+            self._logger.error("Unable to process MIDI file (too many timestamps): " + path)
             self._reset_intermediary_variables()
             return pd.DataFrame()
 
@@ -136,7 +135,6 @@ class MidiReader(object):
 
         measure = 1
         current_beat = 1
-        prev_time_sig = None
         time_sig = None
         for (index, (timestamp, notes)) in enumerate(sorted(timestamp_sequence.items())):
 
@@ -204,12 +202,11 @@ class MidiReader(object):
 
         return dataframe
 
-    def _extract_text_sequence(self, pattern, duration_quantization_ticks):
+    def _extract_text_sequence(self, pattern):
         """
         Processes a MIDI pattern by extracting a textual representation of all the notes played. The extracted text
         sequence is stored in self.text_sequence.
         :param pattern: the MIDI pattern to process.
-        :param duration_quantization_ticks: the factor to quantize MIDI note durations by, in MIDI ticks.
         :return: None.
         """
 
@@ -223,7 +220,7 @@ class MidiReader(object):
             # Process all MIDI events in the track and store textual representation in self.text_sequence
             for event in track:
                 # Updates current_program, since this may have been changed by the event
-                current_program = self._process_midi_event(event, current_program, duration_quantization_ticks)
+                current_program = self._process_midi_event(event, current_program)
 
         # In case BPM and Tempo were not set explicitly, assume MIDI defaults:
         if len(self._time_signature_by_timestamp) == 0:
@@ -259,12 +256,11 @@ class MidiReader(object):
 
         return timestamp_sequence
 
-    def _process_midi_event(self, event, program, duration_quantization_ticks):
+    def _process_midi_event(self, event, program):
         """
         Processes a MIDI event played by a given MIDI program.
         :param event: the MIDI event to process.
         :param program: the current program of the MIDI track the event occurred on.
-        :param duration_quantization_ticks: the quantization rate to use for standardizing note duration (in MIDI ticks).
         :return: the updated program of the MIDI track (since this may have been updated by the MIDI event).
         """
 
@@ -280,7 +276,7 @@ class MidiReader(object):
             self._on_notes[event.pitch] = (event.tick, event)
         # Some sequences pass Note Off events encoded as a Note On event with 0 velocity
         elif type(event) == midi.NoteOffEvent or type(event) == midi.NoteOnEvent and event.velocity == 0:
-            self._process_note_off(event.pitch, program, event.tick, duration_quantization_ticks)
+            self._process_note_off(event.pitch, program, event.tick)
         elif type(event) == midi.TimeSignatureEvent:
             self._time_signature_by_timestamp[event.tick] = TimeSignature(event.get_numerator(),
                                                                           event.get_denominator())
@@ -294,13 +290,12 @@ class MidiReader(object):
 
         return program
 
-    def _process_note_off(self, note, program_num, current_tick, duration_quantization):
+    def _process_note_off(self, note, program_num, current_tick):
         """
         Processes a note off message by adding a textual representation of the note to this instance's text sequence.
         :param note: the MIDI note being turned off.
         :param program_num: the program the note was played with.
         :param current_tick: the absolute MIDI tick timestamp when the note off message was encountered.
-        :param duration_quantization: the quantization factor to use for note duration values.
         :return: None.
         """
 
