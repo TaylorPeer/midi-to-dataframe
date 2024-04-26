@@ -1,5 +1,5 @@
 import logging
-import midi
+import python3_midi
 import pandas as pd
 from collections import defaultdict
 from collections import OrderedDict
@@ -99,7 +99,7 @@ class MidiReader(object):
         :return: the Data Frame.
         """
         try:
-            pattern = midi.read_midifile(path)
+            pattern = python3_midi.read_midifile(path)
         except (TypeError, RuntimeWarning):
             self._logger.error("Could not load MIDI file: " + path)
             self._reset_intermediary_variables()
@@ -265,24 +265,24 @@ class MidiReader(object):
         """
 
         # Set program for drums, since this is set by channel and not explicitly
-        if (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and event.channel == MIDI_DRUM_CHANNEL:
+        if (type(event) == python3_midi.NoteOnEvent or type(event) == python3_midi.NoteOffEvent) and event.channel == MIDI_DRUM_CHANNEL:
             program = DEFAULT_MIDI_PROGRAM_NUM
-        elif (type(event) == midi.NoteOnEvent or type(event) == midi.NoteOffEvent) and program is None:
+        elif (type(event) == python3_midi.NoteOnEvent or type(event) == python3_midi.NoteOffEvent) and program is None:
             # If program was never set, default to 1 (Piano)
             program = 1
 
         # True Note On events have positive velocity
-        if type(event) == midi.NoteOnEvent and event.velocity > 0:
+        if type(event) == python3_midi.NoteOnEvent and event.velocity > 0:
             self._on_notes[event.pitch] = (event.tick, event)
         # Some sequences pass Note Off events encoded as a Note On event with 0 velocity
-        elif type(event) == midi.NoteOffEvent or type(event) == midi.NoteOnEvent and event.velocity == 0:
+        elif type(event) == python3_midi.NoteOffEvent or type(event) == python3_midi.NoteOnEvent and event.velocity == 0:
             self._process_note_off(event.pitch, program, event.tick)
-        elif type(event) == midi.TimeSignatureEvent:
+        elif type(event) == python3_midi.TimeSignatureEvent:
             self._time_signature_by_timestamp[event.tick] = TimeSignature(event.get_numerator(),
                                                                           event.get_denominator())
-        elif type(event) == midi.SetTempoEvent:
+        elif type(event) == python3_midi.SetTempoEvent:
             self._bpm_by_timestamp[event.tick] = event.get_bpm()
-        elif type(event) == midi.ProgramChangeEvent:
+        elif type(event) == python3_midi.ProgramChangeEvent:
             program = event.value
         else:
             # TODO: not currently handled: pitch changes, control changes, ...

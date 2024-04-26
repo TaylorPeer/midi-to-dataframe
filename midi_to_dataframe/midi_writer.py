@@ -1,4 +1,4 @@
-import midi
+import python3_midi
 
 REST = "rest"
 PERCUSSION = "percussion"
@@ -39,7 +39,7 @@ class MidiWriter(object):
         :param save_to_path: the path to write the MIDI file to.
         :return: None.
         """
-        pattern = midi.Pattern()
+        pattern = python3_midi.Pattern()
         pattern.resolution = self._resolution
 
         # Reset all internal state variables to their defaults
@@ -94,7 +94,7 @@ class MidiWriter(object):
 
                         # Add NoteOn event to events to be added
                         key = self._note_mapper.get_note_number(note_name)
-                        on_event = midi.NoteOnEvent(velocity=127, pitch=key, channel=track_num)
+                        on_event = python3_midi.NoteOnEvent(velocity=127, pitch=key, channel=track_num)
                         if current_timestamp in midi_events_by_timestamp:
                             events = midi_events_by_timestamp[current_timestamp]
                             events.append(on_event)
@@ -103,7 +103,7 @@ class MidiWriter(object):
                         midi_events_by_timestamp[current_timestamp] = events
 
                         # Add NoteOff event to events to be added
-                        off_event = midi.NoteOffEvent(pitch=key, channel=track_num)
+                        off_event = python3_midi.NoteOffEvent(pitch=key, channel=track_num)
                         off_timestamp = current_timestamp + int((float(note_duration) * self._resolution))
                         if off_timestamp in midi_events_by_timestamp:
                             events = midi_events_by_timestamp[off_timestamp]
@@ -126,10 +126,10 @@ class MidiWriter(object):
 
         # Add End-of-track event to every MIDI track
         for track_num, midi_track in self._midi_tracks_by_track_num.items():
-            midi_track.append(midi.EndOfTrackEvent(tick=1))
+            midi_track.append(python3_midi.EndOfTrackEvent(tick=1))
 
         # Write MIDI file to disk
-        midi.write_midifile(save_to_path, pattern)
+        python3_midi.write_midifile(save_to_path, pattern)
 
     def _get_midi_track(self, program_name):
         """
@@ -151,7 +151,7 @@ class MidiWriter(object):
         :param pattern: the MIDI pattern to append the track to.
         :return: None.
         """
-        track = midi.Track()
+        track = python3_midi.Track()
         if program_name == PERCUSSION:
             # Set general track information on percussion channel
 
@@ -164,14 +164,14 @@ class MidiWriter(object):
             # track.append(time_signature_event)
 
             # Set tempo (BPM)
-            tempo_event = midi.SetTempoEvent(tick=0, bpm=int(self._bpm))
+            tempo_event = python3_midi.SetTempoEvent(tick=0, bpm=int(self._bpm))
             track.append(tempo_event)
 
             # Set drum channel
-            track.append(midi.ProgramChangeEvent(tick=0, channel=PERCUSSION_CHANNEL))
+            track.append(python3_midi.ProgramChangeEvent(tick=0, channel=PERCUSSION_CHANNEL))
         else:
             program_num = self._note_mapper.get_program_number(program_name)
-            program_change_event = midi.ProgramChangeEvent(tick=0, data=[program_num])
+            program_change_event = python3_midi.ProgramChangeEvent(tick=0, data=[program_num])
             track.append(program_change_event)
 
         pattern.append(track)

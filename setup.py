@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 # Define version information
-VERSION = '0.1'
+VERSION = '0.3'
 FULLVERSION = VERSION
 
 requirements = [
